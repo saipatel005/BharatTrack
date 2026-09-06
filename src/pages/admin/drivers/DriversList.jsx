@@ -74,8 +74,12 @@ export const DriversList = () => {
     const newPassword = window.prompt(`Enter new password for ${currentName}:`);
     if (newPassword && newPassword.trim() !== '') {
       try {
-        await updateDoc(doc(db, 'drivers', id), { password: newPassword });
-        setDrivers(drivers.map(d => d.id === id ? { ...d, password: newPassword } : d));
+        // Force reset the isLoggedIn flag so they aren't locked out of the new login
+        await updateDoc(doc(db, 'drivers', id), { 
+          password: newPassword,
+          isLoggedIn: false
+        });
+        setDrivers(drivers.map(d => d.id === id ? { ...d, password: newPassword, isLoggedIn: false } : d));
         alert('Password updated successfully!');
       } catch (error) {
         console.error("Error updating password:", error);

@@ -6,6 +6,7 @@ import { Users, Truck, Route, AlertCircle, Calendar, Bus, Map, AlertTriangle, Ph
 import { StatCard } from '../../components/ui/StatCard';
 import { Card, CardContent } from '../../components/ui/Card';
 import { RouteMap } from '../../components/ui/RouteMap';
+import { StopSequence } from '../../components/ui/StopSequence';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeLocations, setActiveLocations] = useState([]);
   const [selectedBusId, setSelectedBusId] = useState('');
+  const [selectedRouteDetails, setSelectedRouteDetails] = useState(null);
   const [stats, setStats] = useState({
     totalBuses: 0,
     totalStudents: 0,
@@ -22,6 +24,8 @@ export const AdminDashboard = () => {
 
 
   useEffect(() => {
+    let unsubscribeTrips;
+    
     const fetchDashboardData = async () => {
       try {
         // Fetch Students count
@@ -55,32 +59,33 @@ export const AdminDashboard = () => {
           driversMap[d.id] = d.data();
         });
 
-        // Fetch Recent Trips (List)
+        // Fetch Recent Trips (List) in real-time
         const recentQ = query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(5));
-        const snapshot = await getDocs(recentQ);
-        const trips = snapshot.docs.map(doc => {
-          const data = doc.data();
-          
-          let resolvedDriver = driversMap[data.driverId];
-          if (!resolvedDriver && data.busId) {
-            resolvedDriver = Object.values(driversMap).find(d => d.assignedBusId === data.busId);
-          }
-          
-          let displayDriverName = data.driverName || data.driverId || 'Unknown Driver';
-          if (resolvedDriver) {
-            displayDriverName = resolvedDriver.name;
-          } else if (data.driverId === 'demo-driver') {
-            displayDriverName = 'Demo Driver';
-          }
-          
-          return { 
-            id: doc.id, 
-            ...data,
-            resolvedDriverName: displayDriverName,
-            resolvedDriverPhone: resolvedDriver?.phone || ''
-          };
+        unsubscribeTrips = onSnapshot(recentQ, (snapshot) => {
+          const trips = snapshot.docs.map(doc => {
+            const data = doc.data();
+            
+            let resolvedDriver = driversMap[data.driverId];
+            if (!resolvedDriver && data.busId) {
+              resolvedDriver = Object.values(driversMap).find(d => d.assignedBusId === data.busId);
+            }
+            
+            let displayDriverName = data.driverName || data.driverId || 'Unknown Driver';
+            if (resolvedDriver) {
+              displayDriverName = resolvedDriver.name;
+            } else if (data.driverId === 'demo-driver') {
+              displayDriverName = 'Demo Driver';
+            }
+            
+            return { 
+              id: doc.id, 
+              ...data,
+              resolvedDriverName: displayDriverName,
+              resolvedDriverPhone: resolvedDriver?.phone || ''
+            };
+          });
+          setRecentTrips(trips);
         });
-        setRecentTrips(trips);
 
 
 
@@ -91,6 +96,10 @@ export const AdminDashboard = () => {
       }
     };
     fetchDashboardData();
+    
+    return () => {
+      if (unsubscribeTrips) unsubscribeTrips();
+    };
   }, []);
 
   useEffect(() => {
@@ -108,6 +117,27 @@ export const AdminDashboard = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!selectedBusId) {
+      setSelectedRouteDetails(null);
+      return;
+    }
+    const fetchRoute = async () => {
+      try {
+        const routeQ = query(collection(db, 'routes'), where('assignedBusId', '==', selectedBusId));
+        const routeSnap = await getDocs(routeQ);
+        if (!routeSnap.empty) {
+          setSelectedRouteDetails(routeSnap.docs[0].data());
+        } else {
+          setSelectedRouteDetails(null);
+        }
+      } catch (e) {
+        console.error("Error fetching route for selected bus:", e);
+      }
+    };
+    fetchRoute();
+  }, [selectedBusId]);
 
   const selectedLocation = activeLocations.find(loc => loc.busId === selectedBusId);
 
@@ -191,6 +221,7 @@ export const AdminDashboard = () => {
               ) : selectedLocation ? (
                 <RouteMap 
                   busLocation={{ lat: selectedLocation.latitude, lng: selectedLocation.longitude, speed: Math.round((selectedLocation.speed || 0) * 3.6) }}
+                  stops={selectedRouteDetails?.stops || []}
                   className="h-full w-full z-0"
                 />
               ) : (
@@ -200,6 +231,13 @@ export const AdminDashboard = () => {
                 </div>
               )}
             </div>
+            
+            {selectedRouteDetails?.stops && selectedRouteDetails.stops.length > 0 && (
+              <StopSequence 
+                stops={selectedRouteDetails.stops} 
+                busLocation={selectedLocation ? { lat: selectedLocation.latitude, lng: selectedLocation.longitude } : null} 
+              />
+            )}
           </CardContent>
         </Card>
       </div>

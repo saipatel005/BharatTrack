@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "../firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -39,6 +39,17 @@ export const AuthProvider = ({ children }) => {
         if (String(driverData.password) !== String(password)) {
           return { success: false, error: 'Invalid password' };
         }
+        
+        // Check if already logged in
+        if (driverData.isLoggedIn) {
+          return { success: false, error: 'Driver is already logged in on another device.' };
+        }
+        
+        // Update driver doc to logged in
+        await updateDoc(doc(db, 'drivers', driverDoc.id), {
+          isLoggedIn: true,
+          lastLoginTime: serverTimestamp()
+        });
         
         // Emulate a logged-in session
         setIsDemoMode(true);
@@ -91,7 +102,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Logout function
-  const disableDemoMode = () => {
+  const disableDemoMode = async () => {
+    const storedSession = localStorage.getItem('customUserSession');
+    if (storedSession) {
+      try {
+        const { data } = JSON.parse(storedSession);
+        if (data.role === 'driver' && data.uid) {
+          await updateDoc(doc(db, 'drivers', data.uid), {
+            isLoggedIn: false
+          });
+        }
+      } catch (e) {
+        console.error("Failed to update driver logout status", e);
+      }
+    }
+
     setIsDemoMode(false);
     setCurrentUser(null);
     setUserData(null);
@@ -108,11 +133,31 @@ export const AuthProvider = ({ children }) => {
         setCurrentUser(user);
         setUserData(data);
         setIsDemoMode(true);
+        setLoading(false);
+
+        if (data.role === 'driver' || data.role === 'student') {
+          const collectionName = data.role === 'driver' ? 'drivers' : 'students';
+          const docRef = doc(db, collectionName, data.uid);
+          
+          const unsubscribeCustom = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const latestData = docSnap.data();
+              if (String(latestData.password) !== String(data.password)) {
+                 disableDemoMode();
+                 alert("Your credentials have been updated by the administrator. Please log in again.");
+              }
+            } else {
+               disableDemoMode();
+               alert("Your account was removed by the administrator.");
+            }
+          });
+          return () => unsubscribeCustom();
+        }
+        return;
       } catch (e) {
         console.error("Failed to parse stored custom session", e);
+        setLoading(false);
       }
-      setLoading(false);
-      return;
     }
 
     if (isDemoMode) return; // Skip Firebase auth if in demo mode

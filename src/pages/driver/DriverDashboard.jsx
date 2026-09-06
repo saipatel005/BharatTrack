@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { doc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, setDoc, deleteDoc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { Play, Square, MapPin, Navigation, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -11,10 +11,11 @@ export const DriverDashboard = () => {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const watchIdRef = useRef(null);
   const lastUpdateRef = useRef(0);
-  const UPDATE_INTERVAL_MS = 5000; // Only update Firestore every 5 seconds max
+  const UPDATE_INTERVAL_MS = 1000; // Only update Firestore every 1 second max
 
   // Cleanup location watching on unmount
   useEffect(() => {
@@ -65,6 +66,43 @@ export const DriverDashboard = () => {
     }
   };
 
+  // Restore active trip state on mount
+  useEffect(() => {
+    const restoreActiveTrip = async () => {
+      if (!userData) return;
+      
+      try {
+        const busId = userData?.assignedBusId || 'DEMO-BUS-1';
+        const activeTripRef = doc(db, 'trips', `active_${busId}`);
+        const activeTripSnap = await getDoc(activeTripRef);
+        
+        if (activeTripSnap.exists() && activeTripSnap.data().status === 'Active') {
+          setTripActive(true);
+          
+          // Resume watching GPS if supported and not already watching
+          if (navigator.geolocation && watchIdRef.current === null) {
+            watchIdRef.current = navigator.geolocation.watchPosition(
+              handleLocationUpdate,
+              handleLocationError,
+              {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+              }
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error restoring active trip:", err);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    
+    restoreActiveTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData]);
+
   const startTrip = async () => {
     setError(null);
     setLoading(true);
@@ -80,10 +118,17 @@ export const DriverDashboard = () => {
       const busId = userData?.assignedBusId || 'DEMO-BUS-1';
       await setDoc(doc(db, 'trips', `active_${busId}`), {
         busId,
-        driverId: userData?.id || 'demo-driver',
+        driverId: userData?.uid || userData?.id || 'demo-driver',
         startTime: serverTimestamp(),
         status: 'Active'
       });
+
+      // Immediately set the location to active so students get notified instantly
+      // even before the first GPS coordinate is received from the device
+      await setDoc(doc(db, 'locations', busId), {
+        activeTrip: true,
+        timestamp: serverTimestamp()
+      }, { merge: true });
 
       // Start watching GPS
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -115,11 +160,46 @@ export const DriverDashboard = () => {
       
       const busId = userData?.assignedBusId || 'DEMO-BUS-1';
       
-      // Mark trip as completed
-      await updateDoc(doc(db, 'trips', `active_${busId}`), {
-        status: 'Completed',
-        endTime: serverTimestamp(),
-      });
+      const activeTripRef = doc(db, 'trips', `active_${busId}`);
+      const activeTripSnap = await getDoc(activeTripRef);
+      
+      if (activeTripSnap.exists()) {
+        const activeTripData = activeTripSnap.data();
+        
+        // Calculate the new trip ID based on completion number for the day
+        const today = new Date();
+        const startOfDay = new Date(today);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const tripsQuery = query(
+          collection(db, 'trips'),
+          where('status', '==', 'Completed')
+        );
+        const tripsSnap = await getDocs(tripsQuery);
+        
+        let tripCount = 0;
+        tripsSnap.forEach(doc => {
+          const data = doc.data();
+          if (data.endTime && data.endTime.toDate() >= startOfDay) {
+            tripCount++;
+          }
+        });
+        tripCount += 1;
+        
+        const day = String(today.getDate()).padStart(2, '0');
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const newTripId = `${day}-${month}-${tripCount}`;
+        
+        // Create the completed trip with the new ID
+        await setDoc(doc(db, 'trips', newTripId), {
+          ...activeTripData,
+          status: 'Completed',
+          endTime: serverTimestamp(),
+        });
+        
+        // Delete the old active trip document
+        await deleteDoc(activeTripRef);
+      }
 
       // Update location document to inactive
       await updateDoc(doc(db, 'locations', busId), {
@@ -153,7 +233,12 @@ export const DriverDashboard = () => {
 
       {/* Main Action Area */}
       <div className="w-full flex flex-col items-center justify-center py-8">
-        {!tripActive ? (
+        {isInitializing ? (
+          <div className="w-64 h-64 rounded-full bg-gray-100 flex flex-col items-center justify-center shadow-sm">
+            <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+            <span className="mt-4 text-gray-500 font-medium">Checking status...</span>
+          </div>
+        ) : !tripActive ? (
           <button
             onClick={startTrip}
             disabled={loading}

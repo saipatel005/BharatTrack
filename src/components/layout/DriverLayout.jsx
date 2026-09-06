@@ -37,8 +37,9 @@ const DriverLayout = () => {
     <div className="h-[100dvh] w-full bg-gray-50 flex overflow-hidden">
       {/* Sidebar (Desktop only) */}
       <div className="hidden lg:flex fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex-col">
-        <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200">
-          <span className="text-xl font-bold text-green-600">SmartBus Driver</span>
+        <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200 space-x-2">
+          <img src="/logo.png" alt="Bharat Track Logo" className="h-10 w-10 object-contain" />
+          <span className="text-xl font-extrabold text-gray-900 tracking-tight">Bharat<span className="text-orange-600">Track</span></span>
         </div>
         
         <nav className="p-4 space-y-1 flex-1">
@@ -63,7 +64,10 @@ const DriverLayout = () => {
       <div className="flex-1 flex flex-col lg:pl-64 h-full overflow-hidden">
         {/* Top Navbar */}
         <header className="h-16 shrink-0 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8">
-          <div className="lg:hidden font-bold text-green-600 text-lg">SmartBus Driver</div>
+          <div className="lg:hidden flex items-center space-x-2">
+            <img src="/logo.png" alt="Bharat Track Logo" className="h-8 w-8 object-contain" />
+            <span className="text-lg font-extrabold text-gray-900 tracking-tight">Bharat<span className="text-orange-600">Track</span></span>
+          </div>
           <div className="hidden lg:block flex-1" />
           
           <div className="flex items-center space-x-4">

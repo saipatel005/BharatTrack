@@ -82,10 +82,12 @@ export const Login = () => {
       if (loginRole === 'admin') {
         await signInWithEmailAndPassword(auth, identifier, password);
         // Redirection is handled by the useEffect above once AuthContext updates
+        return; // Keep loading true until unmount
       } else if (loginRole === 'driver') {
         const response = await loginAsDriver(identifier, password);
         if (response.success) {
           navigate('/driver');
+          return; // Keep loading true until unmount
         } else {
           setError(response.error);
         }
@@ -93,6 +95,7 @@ export const Login = () => {
         const response = await loginAsStudent(identifier, password);
         if (response.success) {
           navigate('/student');
+          return; // Keep loading true until unmount
         } else {
           setError(response.error);
         }
@@ -106,9 +109,9 @@ export const Login = () => {
       } else {
         setError("Invalid credentials or server error.");
       }
-    } finally {
-      setLoading(false);
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -120,9 +123,7 @@ export const Login = () => {
       <div className="w-full max-w-md relative z-10">
         <div className="bg-white/80 backdrop-blur-xl border border-white/20 p-8 rounded-2xl shadow-xl">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
-              <Bus className="w-8 h-8 text-blue-600" />
-            </div>
+            <img src="/logo.png" alt="Bharat Track Logo" className="h-28 object-contain mx-auto mb-4 drop-shadow-sm" />
             <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
             <p className="text-gray-500 mt-2">Sign in to your account</p>
           </div>
@@ -186,7 +187,7 @@ export const Login = () => {
                     setPassword(e.target.value);
                     if (error) setError('');
                   }}
-                  className="w-full px-4 py-3 pr-12 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none bg-white/50"
+                  className="w-full px-4 py-3 pr-12 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none bg-white/50 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                   placeholder="••••••••"
                 />
                 <button

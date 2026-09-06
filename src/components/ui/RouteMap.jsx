@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -46,10 +46,21 @@ const MapUpdater = ({ bounds, center }) => {
       map.setView(center, map.getZoom());
     }
   }, [bounds, center, map]);
+};
+
+// Component to handle map clicks
+const MapClickHandler = ({ onMapClick }) => {
+  useMapEvents({
+    click(e) {
+      if (onMapClick) {
+        onMapClick(e.latlng);
+      }
+    },
+  });
   return null;
 };
 
-export const RouteMap = ({ stops = [], busLocation = null, className = "h-[400px] w-full rounded-xl z-0" }) => {
+export const RouteMap = ({ stops = [], busLocation = null, onMapClick = null, className = "h-[400px] w-full rounded-xl z-0" }) => {
   // Center on stops if available, otherwise bus location, otherwise default
   const defaultCenter = stops.length > 0 ? [stops[0].lat, stops[0].lng] : 
                         busLocation ? [busLocation.lat, busLocation.lng] : 
@@ -67,10 +78,11 @@ export const RouteMap = ({ stops = [], busLocation = null, className = "h-[400px
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
         <MapUpdater bounds={bounds} center={defaultCenter} />
+        {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
 
         {/* Draw Route Line */}
         {stops.length > 1 && (

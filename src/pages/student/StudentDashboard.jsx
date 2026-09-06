@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -6,6 +6,7 @@ import { Bus, MapPin, Clock, AlertCircle, Bell, Key, X, User } from 'lucide-reac
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { RouteMap } from '../../components/ui/RouteMap';
+import { StopSequence } from '../../components/ui/StopSequence';
 
 export const StudentDashboard = () => {
   const { userData } = useAuth();
@@ -14,10 +15,14 @@ export const StudentDashboard = () => {
   const [liveLocation, setLiveLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [eta, setEta] = useState(null);
-  const [showNotification, setShowNotification] = useState(false);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [notification, setNotification] = useState({ show: false, title: '', message: '' });
+  const prevActiveTripRef = useRef(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(
+    "Notification" in window ? Notification.permission : "denied"
+  );
 
   const assignedBusId = userData?.busId || userData?.assignedBusId || '';
   const assignedRouteId = userData?.routeId || userData?.assignedRouteId || '';
@@ -46,8 +51,14 @@ export const StudentDashboard = () => {
           }
         }
         
+        let routeQ;
         if (assignedRouteId) {
-          const routeQ = query(collection(db, 'routes'), where('routeName', '==', assignedRouteId));
+          routeQ = query(collection(db, 'routes'), where('routeName', '==', assignedRouteId));
+        } else if (assignedBusId) {
+          routeQ = query(collection(db, 'routes'), where('assignedBusId', '==', assignedBusId));
+        }
+
+        if (routeQ) {
           const routeSnap = await getDocs(routeQ);
           if (!routeSnap.empty) {
             setRouteDetails(routeSnap.docs[0].data());
@@ -72,6 +83,51 @@ export const StudentDashboard = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.activeTrip) {
+          if (prevActiveTripRef.current === false) {
+            // Trigger in-app toast
+            setNotification({
+              show: true,
+              title: 'Trip Started!',
+              message: 'Your bus has just started its route.'
+            });
+            setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 8000);
+            
+            // Trigger OS Native Notification
+            if ("Notification" in window && Notification.permission === "granted") {
+              const showNative = async () => {
+                try {
+                  if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                      await registration.showNotification("Trip Started!", {
+                        body: "Your bus has just started its route.",
+                        icon: "/logo.png",
+                        vibrate: [200, 100, 200, 100, 200]
+                      });
+                      return;
+                    }
+                  }
+                  new Notification("Trip Started!", { 
+                    body: "Your bus has just started its route.",
+                    icon: "/logo.png"
+                  });
+                } catch (e) {
+                  console.error("Native notification failed:", e);
+                  try {
+                    new Notification("Trip Started!", { 
+                      body: "Your bus has just started its route.",
+                      icon: "/logo.png"
+                    });
+                  } catch (fallbackErr) {
+                    console.error("Fallback notification failed:", fallbackErr);
+                  }
+                }
+              };
+              showNative();
+            }
+          }
+          prevActiveTripRef.current = true;
+
           setLiveLocation({
             lat: data.latitude,
             lng: data.longitude,
@@ -84,18 +140,61 @@ export const StudentDashboard = () => {
             const myStop = routeDetails.stops.find(s => s.id === studentStopId);
             if (myStop) {
               setEta('~2 mins'); 
-              // Simulate approaching notification when bus is moving
-              if (data.speed > 0 && !showNotification) {
-                setShowNotification(true);
-                setTimeout(() => setShowNotification(false), 8000); // Hide after 8s
-              }
             }
           }
         } else {
+          const wasActive = prevActiveTripRef.current;
+          
+          if (wasActive === true) {
+            // Trigger in-app toast
+            setNotification({
+              show: true,
+              title: 'Trip Ended',
+              message: 'Your bus has completed its route.'
+            });
+            setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 8000);
+            
+            // Trigger OS Native Notification
+            if ("Notification" in window && Notification.permission === "granted") {
+              const showNativeEnd = async () => {
+                try {
+                  if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                      await registration.showNotification("Trip Ended", {
+                        body: "Your bus has completed its route.",
+                        icon: "/logo.png",
+                        vibrate: [200, 100, 200]
+                      });
+                      return;
+                    }
+                  }
+                  new Notification("Trip Ended", { 
+                    body: "Your bus has completed its route.",
+                    icon: "/logo.png"
+                  });
+                } catch (e) {
+                  console.error("Native notification failed:", e);
+                }
+              };
+              showNativeEnd();
+            }
+          }
+          
+          prevActiveTripRef.current = false;
           setLiveLocation(null);
           setEta('Bus is offline');
-          setShowNotification(false);
+          
+          // Only force hide if we didn't just show the "Trip Ended" message
+          if (wasActive === null) {
+            setNotification(prev => ({ ...prev, show: false }));
+          }
         }
+      } else {
+        prevActiveTripRef.current = false;
+        setLiveLocation(null);
+        setEta('Bus is offline');
+        setNotification(prev => ({ ...prev, show: false }));
       }
     });
 
@@ -109,7 +208,6 @@ export const StudentDashboard = () => {
     try {
       const studentRef = doc(db, 'students', userData.uid);
       await updateDoc(studentRef, { password: newPassword });
-      setIsPasswordModalOpen(false);
       setNewPassword('');
       alert("Password updated successfully!");
     } catch (error) {
@@ -117,6 +215,15 @@ export const StudentDashboard = () => {
       alert("Failed to update password. Please try again.");
     } finally {
       setIsUpdatingPassword(false);
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if ("Notification" in window) {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+    } else {
+      alert("Browser security block: Native notifications require HTTPS or a trusted local network bypass. The in-app notifications will still work!");
     }
   };
 
@@ -129,15 +236,15 @@ export const StudentDashboard = () => {
       
       {/* Simulated Notification Toast */}
       <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] transition-all duration-500 ease-in-out ${
-        showNotification ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none'
+        notification.show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none'
       }`}>
         <div className="bg-white px-6 py-4 rounded-2xl shadow-2xl border border-blue-100 flex items-center space-x-4 max-w-[90vw] mx-auto">
           <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
             <Bell className="w-5 h-5 text-blue-600 animate-bounce" />
           </div>
           <div>
-            <h4 className="font-bold text-gray-900">Bus Approaching!</h4>
-            <p className="text-sm text-gray-500">Your bus is ~2 mins away from your stop.</p>
+            <h4 className="font-bold text-gray-900">{notification.title}</h4>
+            <p className="text-sm text-gray-500">{notification.message}</p>
           </div>
         </div>
       </div>
@@ -155,10 +262,12 @@ export const StudentDashboard = () => {
             <p className="text-gray-500">Track your ride to college</p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setIsPasswordModalOpen(true)} className="flex items-center self-start sm:self-auto border-purple-200 text-purple-700 hover:bg-purple-50">
-          <Key className="w-4 h-4 mr-2" />
-          Change Password
-        </Button>
+        <div className="flex items-center space-x-2 self-start sm:self-auto flex-wrap gap-y-2">
+          <Button variant="outline" onClick={() => setIsSettingsModalOpen(true)} className="flex items-center border-purple-200 text-purple-700 hover:bg-purple-50">
+            <User className="w-4 h-4 mr-2" />
+            Settings
+          </Button>
+        </div>
       </div>
 
       {/* Student Details Card */}
@@ -257,41 +366,69 @@ export const StudentDashboard = () => {
             )}
           </div>
         </Card>
+        
+        {routeDetails?.stops && routeDetails.stops.length > 0 && (
+          <StopSequence stops={routeDetails.stops} busLocation={liveLocation} />
+        )}
       </div>
 
-      {/* Change Password Modal */}
-      {isPasswordModalOpen && (
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
-              <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
-              <button onClick={() => setIsPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-xl font-bold text-gray-900">Account Settings</h2>
+              <button onClick={() => setIsSettingsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handlePasswordChange} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                <input 
-                  required
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50"
-                  placeholder="Enter new password"
-                  minLength={6}
-                />
+            <div className="p-6 space-y-6">
+              {/* Notifications Settings */}
+              {notificationPermission !== 'granted' && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center">
+                    <Bell className="w-4 h-4 mr-2 text-blue-600" /> Notifications
+                  </h3>
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col space-y-3">
+                    <p className="text-sm text-blue-800">You currently have push notifications disabled. Enable them to get alerts when your bus starts and ends its trip.</p>
+                    <Button onClick={requestNotificationPermission} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                      Enable Push Alerts
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Password Settings */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center">
+                  <Key className="w-4 h-4 mr-2 text-purple-600" /> Security
+                </h3>
+                <form onSubmit={handlePasswordChange} className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                    <input 
+                      required
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50"
+                      placeholder="Enter new password"
+                      minLength={6}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white" disabled={isUpdatingPassword}>
+                    {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                  </Button>
+                </form>
               </div>
-              <div className="pt-4 flex space-x-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsPasswordModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1" style={{backgroundColor: '#9333ea', color: 'white'}} disabled={isUpdatingPassword}>
-                  {isUpdatingPassword ? 'Updating...' : 'Update Password'}
-                </Button>
-              </div>
-            </form>
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+              <Button type="button" variant="outline" className="w-full" onClick={() => setIsSettingsModalOpen(false)}>
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
