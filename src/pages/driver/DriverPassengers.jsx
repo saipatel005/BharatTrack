@@ -100,7 +100,10 @@ export const DriverPassengers = () => {
                     <MapPin className="w-4 h-4 mr-1.5 text-gray-400" />
                     {student.stopId || 'Pending Stop'}
                   </div>
-                  <button className="flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors">
+                  <button 
+                    onClick={() => student.mobileNumber ? window.location.href = `tel:${student.mobileNumber}` : alert('No mobile number available for this student.')}
+                    className={`flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors ${!student.mobileNumber ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
                     <Phone className="w-4 h-4 mr-2" />
                     Call
                   </button>

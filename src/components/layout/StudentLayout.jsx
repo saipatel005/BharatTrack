@@ -1,4 +1,4 @@
-import { LogOut, Map, Bell } from 'lucide-react';
+import { LogOut, Map, Bell, LifeBuoy } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { auth } from '../../firebase/config';
@@ -12,6 +12,7 @@ const StudentLayout = ({ children }) => {
   const navigation = [
     { name: 'My Bus', href: '/student', icon: Map },
     { name: 'Notifications', href: '/student/notifications', icon: Bell },
+    { name: 'Support', href: '/student/support', icon: LifeBuoy },
   ];
 
   const handleLogout = async () => {

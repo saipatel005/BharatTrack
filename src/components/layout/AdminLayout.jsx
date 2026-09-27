@@ -1,5 +1,5 @@
 
-import { LogOut, User, Bus, Map, Users, LayoutDashboard, Settings } from 'lucide-react';
+import { LogOut, User, Bus, Map, Users, LayoutDashboard, Settings, MessageSquare } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { auth } from '../../firebase/config';
@@ -16,6 +16,7 @@ const AdminLayout = ({ children }) => {
     { name: 'Drivers', href: '/admin/drivers', icon: User },
     { name: 'Students', href: '/admin/students', icon: Users },
     { name: 'Routes', href: '/admin/routes', icon: Map },
+    { name: 'Reports', href: '/admin/reports', icon: MessageSquare },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];
 

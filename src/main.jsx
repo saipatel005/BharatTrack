@@ -7,8 +7,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then((reg) => {
     console.log('ServiceWorker registration successful');
   }).catch(error => {
-    alert('Debug: SW Registration Failed: ' + error.message);
-    console.error('ServiceWorker registration failed: ', error);
+    console.warn('ServiceWorker registration failed (expected during local dev): ', error);
   });
 }
 

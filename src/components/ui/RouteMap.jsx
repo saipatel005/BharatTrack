@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -61,6 +61,43 @@ const MapClickHandler = ({ onMapClick }) => {
 };
 
 export const RouteMap = ({ stops = [], busLocation = null, onMapClick = null, className = "h-[400px] w-full rounded-xl z-0" }) => {
+  const [routePath, setRoutePath] = useState([]);
+
+  // Fetch actual road routing from OSRM
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (!stops || stops.length < 2) {
+        setRoutePath(stops.map(s => [s.lat, s.lng]));
+        return;
+      }
+
+      try {
+        // OSRM expects coordinates in lon,lat format
+        const coordinatesString = stops.map(stop => `${stop.lng},${stop.lat}`).join(';');
+        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson`);
+        
+        if (!response.ok) throw new Error('OSRM API response not OK');
+        
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+          // GeoJSON uses [lon, lat], Leaflet Polyline expects [lat, lon]
+          const path = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+          setRoutePath(path);
+        } else {
+          // Fallback to straight lines if route not found
+          setRoutePath(stops.map(s => [s.lat, s.lng]));
+        }
+      } catch (error) {
+        console.error('Error fetching route from OSRM:', error);
+        // Fallback to straight lines on error
+        setRoutePath(stops.map(s => [s.lat, s.lng]));
+      }
+    };
+
+    fetchRoute();
+  }, [stops]);
+
   // Center on stops if available, otherwise bus location, otherwise default
   const defaultCenter = stops.length > 0 ? [stops[0].lat, stops[0].lng] : 
                         busLocation ? [busLocation.lat, busLocation.lng] : 
@@ -85,12 +122,12 @@ export const RouteMap = ({ stops = [], busLocation = null, onMapClick = null, cl
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
 
         {/* Draw Route Line */}
-        {stops.length > 1 && (
+        {routePath.length > 1 && (
           <Polyline 
-            positions={stops.map(s => [s.lat, s.lng])} 
+            positions={routePath} 
             color="#3b82f6" 
-            weight={4}
-            opacity={0.7}
+            weight={5}
+            opacity={0.8}
           />
         )}
 

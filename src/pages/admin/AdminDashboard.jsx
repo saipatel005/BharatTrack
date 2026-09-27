@@ -141,6 +141,10 @@ export const AdminDashboard = () => {
 
   const selectedLocation = activeLocations.find(loc => loc.busId === selectedBusId);
 
+  const displayStops = selectedRouteDetails?.stops 
+    ? (selectedLocation?.direction === 'From College' ? [...selectedRouteDetails.stops].reverse() : selectedRouteDetails.stops)
+    : [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -221,7 +225,7 @@ export const AdminDashboard = () => {
               ) : selectedLocation ? (
                 <RouteMap 
                   busLocation={{ lat: selectedLocation.latitude, lng: selectedLocation.longitude, speed: Math.round((selectedLocation.speed || 0) * 3.6) }}
-                  stops={selectedRouteDetails?.stops || []}
+                  stops={displayStops}
                   className="h-full w-full z-0"
                 />
               ) : (
@@ -232,9 +236,9 @@ export const AdminDashboard = () => {
               )}
             </div>
             
-            {selectedRouteDetails?.stops && selectedRouteDetails.stops.length > 0 && (
+            {displayStops.length > 0 && (
               <StopSequence 
-                stops={selectedRouteDetails.stops} 
+                stops={displayStops} 
                 busLocation={selectedLocation ? { lat: selectedLocation.latitude, lng: selectedLocation.longitude } : null} 
               />
             )}
@@ -260,6 +264,7 @@ export const AdminDashboard = () => {
                     <th className="px-6 py-4 font-medium">Trip ID</th>
                     <th className="px-6 py-4 font-medium">Bus Number</th>
                     <th className="px-6 py-4 font-medium">Driver Name</th>
+                    <th className="px-6 py-4 font-medium">Direction</th>
                     <th className="px-6 py-4 font-medium">Started At</th>
                     <th className="px-6 py-4 font-medium">Reached At</th>
                     <th className="px-6 py-4 font-medium text-right">Actions</th>
@@ -275,6 +280,7 @@ export const AdminDashboard = () => {
                       <td className="px-6 py-4 font-mono text-xs text-gray-500">{trip.id}</td>
                       <td className="px-6 py-4 font-medium text-gray-900">{trip.busId || 'N/A'}</td>
                       <td className="px-6 py-4 text-gray-600">{trip.resolvedDriverName}</td>
+                      <td className="px-6 py-4 text-gray-500">{trip.direction || 'Towards College'}</td>
                       <td className="px-6 py-4 text-gray-500">
                         {trip.startTime?.toDate ? trip.startTime.toDate().toLocaleString() : 'N/A'}
                       </td>

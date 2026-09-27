@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
-import { PhoneCall, AlertTriangle, MessageSquare, LifeBuoy, Loader2, CheckCircle2 } from 'lucide-react';
+import { PhoneCall, MessageSquare, LifeBuoy, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
 
-export const DriverSupport = () => {
+export const StudentSupport = () => {
   const { userData } = useAuth();
   const [supportContacts, setSupportContacts] = useState({
-    emergencyPhone: '',
     adminPhone: ''
   });
 
@@ -28,7 +27,7 @@ export const DriverSupport = () => {
     fetchContacts();
   }, []);
 
-  const [reportCategory, setReportCategory] = useState('Bus Maintenance Needed');
+  const [reportCategory, setReportCategory] = useState('Bus is Delayed/No Show');
   const [reportDescription, setReportDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reportMessage, setReportMessage] = useState(null);
@@ -44,14 +43,14 @@ export const DriverSupport = () => {
         category: reportCategory,
         description: reportDescription,
         reportedBy: userData?.uid || userData?.id || 'unknown',
-        reporterName: userData?.name || 'Driver',
-        role: 'driver',
+        reporterName: userData?.name || 'Student',
+        role: 'student',
         status: 'Open',
         timestamp: serverTimestamp()
       });
       setReportMessage({ type: 'success', text: 'Report submitted successfully. We will look into it.' });
       setReportDescription('');
-      setReportCategory('Bus Maintenance Needed');
+      setReportCategory('Bus is Delayed/No Show');
     } catch (err) {
       console.error("Error submitting report:", err);
       setReportMessage({ type: 'error', text: 'Failed to submit report. Please try again later.' });
@@ -64,36 +63,23 @@ export const DriverSupport = () => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Help & Support</h1>
-        <p className="text-gray-500 mt-1">Get assistance or report issues</p>
+        <p className="text-gray-500 mt-1">Contact management or report issues</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-red-100 bg-red-50/50">
-          <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Emergency Breakdown</h3>
-            <p className="text-sm text-gray-600 mb-6">Report immediate vehicle failure or accidents to the transport department.</p>
-            <Button 
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => supportContacts.emergencyPhone ? window.location.href = `tel:${supportContacts.emergencyPhone}` : alert('Emergency contact not configured.')}
-            >
-              <PhoneCall className="w-5 h-5 mr-2" />
-              Call Emergency Support
-            </Button>
-          </CardContent>
-        </Card>
-
+      <div className="grid md:grid-cols-1 gap-6">
         <Card className="border-blue-100 bg-blue-50/50">
-          <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <LifeBuoy className="w-8 h-8 text-blue-600" />
+          <CardContent className="p-6 text-center flex flex-col sm:flex-row items-center justify-between">
+            <div className="flex items-center text-left mb-4 sm:mb-0">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mr-4 shrink-0">
+                <LifeBuoy className="w-8 h-8 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Admin Assistance</h3>
+                <p className="text-sm text-gray-600">Contact the administration office for urgent queries regarding buses or your route.</p>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Admin Assistance</h3>
-            <p className="text-sm text-gray-600 mb-6">Contact the administration office for route changes or student issues.</p>
             <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => supportContacts.adminPhone ? window.location.href = `tel:${supportContacts.adminPhone}` : alert('Admin contact not configured.')}
             >
               <PhoneCall className="w-5 h-5 mr-2" />
@@ -107,7 +93,7 @@ export const DriverSupport = () => {
         <CardContent className="p-6">
           <div className="flex items-center space-x-3 mb-6">
             <MessageSquare className="w-6 h-6 text-gray-400" />
-            <h3 className="text-lg font-bold text-gray-900">Report a Non-Urgent Issue</h3>
+            <h3 className="text-lg font-bold text-gray-900">Report an Issue</h3>
           </div>
 
           <form onSubmit={handleReportSubmit} className="space-y-4">
@@ -124,8 +110,8 @@ export const DriverSupport = () => {
                 onChange={(e) => setReportCategory(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="Bus Maintenance Needed">Bus Maintenance Needed</option>
-                <option value="Route Feedback">Route Feedback</option>
+                <option value="Bus is Delayed/No Show">Bus is Delayed/No Show</option>
+                <option value="Safety Concern">Safety Concern</option>
                 <option value="App Issue / Bug">App Issue / Bug</option>
                 <option value="Other">Other</option>
               </select>

@@ -9,6 +9,8 @@ import { BusesList } from './pages/admin/buses/BusesList';
 import { DriversList } from './pages/admin/drivers/DriversList';
 import { StudentsList } from './pages/admin/students/StudentsList';
 import { RoutesList } from './pages/admin/routes/RoutesList';
+import { Settings } from './pages/admin/Settings';
+import { ReportsList } from './pages/admin/reports/ReportsList';
 import { DriverDashboard } from './pages/driver/DriverDashboard';
 import { DriverTrips } from './pages/driver/DriverTrips';
 import { DriverRoutes } from './pages/driver/DriverRoutes';
@@ -17,6 +19,8 @@ import { DriverBusDetails } from './pages/driver/DriverBusDetails';
 import { DriverSupport } from './pages/driver/DriverSupport';
 
 import { StudentDashboard } from './pages/student/StudentDashboard';
+import { StudentSupport } from './pages/student/StudentSupport';
+import { StudentNotifications } from './pages/student/StudentNotifications';
 import { Login } from './pages/auth/Login';
 
 function App() {
@@ -37,6 +41,8 @@ function App() {
                     <Route path="/drivers" element={<DriversList />} />
                     <Route path="/students" element={<StudentsList />} />
                     <Route path="/routes" element={<RoutesList />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/reports" element={<ReportsList />} />
                   </Routes>
                 </AdminLayout>
               </ProtectedRoute>
@@ -58,6 +64,8 @@ function App() {
                 <StudentLayout>
                   <Routes>
                     <Route path="/" element={<StudentDashboard />} />
+                    <Route path="/support" element={<StudentSupport />} />
+                    <Route path="/notifications" element={<StudentNotifications />} />
                   </Routes>
                 </StudentLayout>
               </ProtectedRoute>

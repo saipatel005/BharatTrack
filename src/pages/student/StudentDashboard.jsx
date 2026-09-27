@@ -132,7 +132,8 @@ export const StudentDashboard = () => {
             lat: data.latitude,
             lng: data.longitude,
             speed: data.speed,
-            timestamp: data.timestamp
+            timestamp: data.timestamp,
+            direction: data.direction
           });
           
           // Basic ETA calculation
@@ -231,6 +232,10 @@ export const StudentDashboard = () => {
     return <div className="flex h-[calc(100vh-8rem)] items-center justify-center text-gray-500">Loading your bus details...</div>;
   }
 
+  const displayStops = routeDetails?.stops 
+    ? (liveLocation?.direction === 'From College' ? [...routeDetails.stops].reverse() : routeDetails.stops)
+    : [];
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20 lg:pb-8 relative">
       
@@ -315,7 +320,7 @@ export const StudentDashboard = () => {
               liveLocation ? 'bg-green-400 text-green-900' : 'bg-white/20 text-white'
             }`}>
               {liveLocation && <span className="w-2 h-2 bg-green-900 rounded-full mr-2 animate-pulse" />}
-              {liveLocation ? 'ON ROUTE' : 'OFFLINE'}
+              {liveLocation ? `ON ROUTE - ${liveLocation.direction || 'Towards College'}` : 'OFFLINE'}
             </div>
           </div>
 
@@ -359,7 +364,7 @@ export const StudentDashboard = () => {
               </div>
             ) : (
               <RouteMap 
-                stops={routeDetails?.stops || []} 
+                stops={displayStops} 
                 busLocation={liveLocation}
                 className="w-full h-full"
               />
@@ -367,8 +372,8 @@ export const StudentDashboard = () => {
           </div>
         </Card>
         
-        {routeDetails?.stops && routeDetails.stops.length > 0 && (
-          <StopSequence stops={routeDetails.stops} busLocation={liveLocation} />
+        {displayStops.length > 0 && (
+          <StopSequence stops={displayStops} busLocation={liveLocation} />
         )}
       </div>
 

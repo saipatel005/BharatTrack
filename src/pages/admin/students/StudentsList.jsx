@@ -10,6 +10,7 @@ export const StudentsList = () => {
   const [students, setStudents] = useState([]);
   const [busesList, setBusesList] = useState([]);
   const [driversList, setDriversList] = useState([]);
+  const [routesList, setRoutesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,7 +22,8 @@ export const StudentsList = () => {
     department: 'CSE',
     year: '1',
     busId: '',
-    stopId: ''
+    stopId: '',
+    mobileNumber: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -44,6 +46,10 @@ export const StudentsList = () => {
       const driversSnap = await getDocs(driversQ);
       const fetchedDrivers = driversSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       setDriversList(fetchedDrivers);
+
+      const routesQ = query(collection(db, 'routes'));
+      const routesSnap = await getDocs(routesQ);
+      setRoutesList(routesSnap.docs.map(r => ({ id: r.id, ...r.data() })));
 
       // Dynamically resolve driver names and sort the buses list
       const fetchedBuses = fetchedBusesRaw.map(bus => {
@@ -122,7 +128,8 @@ export const StudentsList = () => {
       department: student.department || 'CSE',
       year: student.year || '1',
       busId: student.busId || '',
-      stopId: student.stopId || ''
+      stopId: student.stopId || '',
+      mobileNumber: student.mobileNumber || ''
     });
     setEditingId(student.id);
     setIsModalOpen(true);
@@ -131,7 +138,7 @@ export const StudentsList = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ name: '', rollNumber: '', password: '', department: 'CSE', year: '1', busId: '', stopId: '' });
+    setFormData({ name: '', rollNumber: '', password: '', department: 'CSE', year: '1', busId: '', stopId: '', mobileNumber: '' });
   };
 
   const handleDownloadTemplate = () => {
@@ -170,7 +177,8 @@ export const StudentsList = () => {
             department: values[3] || 'CSE',
             year: values[4] || '1',
             busId: values[5] || '',
-            stopId: values[6] || ''
+            stopId: values[6] || '',
+            mobileNumber: values[7] || ''
           };
           
           if (!studentData.name || !studentData.rollNumber) return Promise.resolve(); // Skip invalid
@@ -222,7 +230,7 @@ export const StudentsList = () => {
           </Button>
           <Button className="shrink-0" onClick={() => {
             setEditingId(null);
-            setFormData({ name: '', rollNumber: '', password: '', department: 'CSE', year: '1', busId: '', stopId: '' });
+            setFormData({ name: '', rollNumber: '', password: '', department: 'CSE', year: '1', busId: '', stopId: '', mobileNumber: '' });
             setIsModalOpen(true);
           }}>
             <Plus className="w-5 h-5 mr-2" />
@@ -372,6 +380,17 @@ export const StudentsList = () => {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                <input 
+                  type="tel"
+                  value={formData.mobileNumber}
+                  onChange={(e) => setFormData({...formData, mobileNumber: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                  placeholder="e.g. 9876543210"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                 <input 
                   required
@@ -417,7 +436,7 @@ export const StudentsList = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Bus (Optional)</label>
                 <select
                   value={formData.busId}
-                  onChange={(e) => setFormData({...formData, busId: e.target.value})}
+                  onChange={(e) => setFormData({...formData, busId: e.target.value, stopId: ''})}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 appearance-none"
                 >
                   <option value="">-- Unassigned --</option>
@@ -428,6 +447,27 @@ export const StudentsList = () => {
                   ))}
                 </select>
               </div>
+
+              {formData.busId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Stop (Optional)</label>
+                  <select
+                    value={formData.stopId}
+                    onChange={(e) => setFormData({...formData, stopId: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 appearance-none"
+                  >
+                    <option value="">-- Select Stop --</option>
+                    {routesList.find(r => r.assignedBusId === formData.busId)?.stops?.map(stop => (
+                      <option key={stop.id || stop.name} value={stop.name}>
+                        {stop.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!routesList.find(r => r.assignedBusId === formData.busId) && (
+                    <p className="text-xs text-orange-500 mt-1">No route configured for this bus yet.</p>
+                  )}
+                </div>
+              )}
 
               <div className="pt-4 flex space-x-3">
                 <Button type="button" variant="outline" className="flex-1" onClick={closeModal}>

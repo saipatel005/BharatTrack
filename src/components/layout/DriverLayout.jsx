@@ -2,7 +2,8 @@
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebase/config';
 import { Map, LogOut, Clock, Users, Bus, LifeBuoy } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -22,6 +23,15 @@ const DriverLayout = () => {
 
   const handleLogout = async () => {
     try {
+      const busId = userData?.assignedBusId || 'DEMO-BUS-1';
+      const activeTripRef = doc(db, 'trips', `active_${busId}`);
+      const activeTripSnap = await getDoc(activeTripRef);
+      
+      if (activeTripSnap.exists() && activeTripSnap.data().status === 'Active') {
+        alert("You cannot log out while a trip is in progress. Please end the trip first.");
+        return;
+      }
+
       if (isDemoMode) {
         disableDemoMode();
       } else {

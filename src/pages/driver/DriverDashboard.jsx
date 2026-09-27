@@ -12,6 +12,8 @@ export const DriverDashboard = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [direction, setDirection] = useState('Towards College');
+
   
   const watchIdRef = useRef(null);
   const lastUpdateRef = useRef(0);
@@ -47,7 +49,8 @@ export const DriverDashboard = () => {
           heading: heading || 0,
           accuracy,
           timestamp: serverTimestamp(),
-          activeTrip: true
+          activeTrip: true,
+          direction: direction
         }, { merge: true });
         
       } catch (err) {
@@ -78,6 +81,7 @@ export const DriverDashboard = () => {
         
         if (activeTripSnap.exists() && activeTripSnap.data().status === 'Active') {
           setTripActive(true);
+          setDirection(activeTripSnap.data().direction || 'Towards College');
           
           // Resume watching GPS if supported and not already watching
           if (navigator.geolocation && watchIdRef.current === null) {
@@ -91,6 +95,15 @@ export const DriverDashboard = () => {
               }
             );
           }
+        } else {
+          // Sync fix: If the driver dashboard loads and there is no active trip,
+          // forcefully mark the bus as offline in the locations document. 
+          // This fixes the "ghost bus" problem where students see "ON ROUTE" 
+          // after an abrupt browser closure or crash.
+          await setDoc(doc(db, 'locations', busId), {
+            activeTrip: false,
+            timestamp: serverTimestamp()
+          }, { merge: true });
         }
       } catch (err) {
         console.error("Error restoring active trip:", err);
@@ -120,13 +133,15 @@ export const DriverDashboard = () => {
         busId,
         driverId: userData?.uid || userData?.id || 'demo-driver',
         startTime: serverTimestamp(),
-        status: 'Active'
+        status: 'Active',
+        direction: direction
       });
 
       // Immediately set the location to active so students get notified instantly
       // even before the first GPS coordinate is received from the device
       await setDoc(doc(db, 'locations', busId), {
         activeTrip: true,
+        direction: direction,
         timestamp: serverTimestamp()
       }, { merge: true });
 
@@ -202,10 +217,10 @@ export const DriverDashboard = () => {
       }
 
       // Update location document to inactive
-      await updateDoc(doc(db, 'locations', busId), {
+      await setDoc(doc(db, 'locations', busId), {
         activeTrip: false,
         timestamp: serverTimestamp()
-      });
+      }, { merge: true });
 
       setTripActive(false);
       setLocation(null);
@@ -239,14 +254,34 @@ export const DriverDashboard = () => {
             <span className="mt-4 text-gray-500 font-medium">Checking status...</span>
           </div>
         ) : !tripActive ? (
-          <button
-            onClick={startTrip}
-            disabled={loading}
-            className="w-64 h-64 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_40px_rgba(37,99,235,0.4)] transition-all transform active:scale-95 flex flex-col items-center justify-center space-y-4 disabled:opacity-75"
-          >
-            {loading ? <Loader2 className="w-16 h-16 animate-spin" /> : <Play className="w-16 h-16 fill-current" />}
-            <span className="text-2xl font-bold tracking-wider">START TRIP</span>
-          </button>
+          <div className="flex flex-col items-center space-y-6">
+            <div className="flex bg-gray-100 p-1 rounded-xl w-64">
+              <button
+                onClick={() => setDirection('Towards College')}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                  direction === 'Towards College' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                To College
+              </button>
+              <button
+                onClick={() => setDirection('From College')}
+                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                  direction === 'From College' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                From College
+              </button>
+            </div>
+            <button
+              onClick={startTrip}
+              disabled={loading}
+              className="w-64 h-64 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_0_40px_rgba(37,99,235,0.4)] transition-all transform active:scale-95 flex flex-col items-center justify-center space-y-4 disabled:opacity-75"
+            >
+              {loading ? <Loader2 className="w-16 h-16 animate-spin" /> : <Play className="w-16 h-16 fill-current" />}
+              <span className="text-2xl font-bold tracking-wider">START TRIP</span>
+            </button>
+          </div>
         ) : (
           <button
             onClick={endTrip}
@@ -265,7 +300,7 @@ export const DriverDashboard = () => {
           <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
             <div className="flex items-center text-green-600 font-semibold">
               <span className="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 animate-pulse" />
-              Live Tracking Active
+              Live: {direction}
             </div>
             <div className="text-sm text-gray-500 font-medium flex items-center">
               <Navigation className="w-4 h-4 mr-1" />
